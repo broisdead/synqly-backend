@@ -18,10 +18,9 @@ def append_to_sheet(data):
     sheet = service.spreadsheets()
 
     values = [[
-        data.get('name'),
-        data.get('email'),
-        data.get('message'),
-        datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        data.get('Full Name'),
+        data.get('Email Address'),
+        data.get('Phone Number'),
     ]]
 
     body = {'values': values}
