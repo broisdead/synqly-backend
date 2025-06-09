@@ -12,13 +12,15 @@ credentials = service_account.Credentials.from_service_account_file(
 )
 
 def append_to_sheet(data):
+    print("📤 Calling Google Sheets API...")  # 🔍 Log this too
+
     service = build('sheets', 'v4', credentials=credentials)
     sheet = service.spreadsheets()
 
     values = [[
-        data.get('Full Name'),
-        data.get('Email Address'),
-        data.get('Phone Number'),
+        data.get('name'),
+        data.get('email'),
+        data.get('message'),
         datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     ]]
 
