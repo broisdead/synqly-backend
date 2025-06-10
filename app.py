@@ -1,48 +1,62 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import csv
-from datetime import datetime
 import os
+from google_sheets import append_to_sheet # Make sure google_sheets.py is in the same directory or accessible via PYTHONPATH
 
 app = Flask(__name__)
+# Enable CORS for all origins, allowing your GitHub Pages form to submit data.
+# For production, consider restricting origins to your specific GitHub Pages URL.
 CORS(app)
 
 @app.route('/', methods=['GET'])
 def home():
-    return "Flask backend is live!"
-
-@app.route('/submit-form', methods=['POST'])
-def submit_form():
-    data = request.json
-    with open('submissions.csv', 'a', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow([datetime.now(), data.get('name'), data.get('email'),
-                         data.get('phone'), data.get('identity')])
-    return jsonify({"message": "Form submitted successfully"}), 200
-
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-from google_sheets import append_to_sheet  # ✅ make sure this line is not failing
-
-app = Flask(__name__)
-CORS(app)
-
-@app.route('/', methods=['GET'])
-def home():
-    return "Flask backend is live!"
+    """
+    Simple route to confirm the Flask backend is running.
+    """
+    return "Flask backend for Google Sheets integration is live!"
 
 @app.route('/submit', methods=['POST'])
 def submit():
+    """
+    Receives form data via a POST request and appends it to Google Sheets.
+    """
+    if not request.is_json:
+        # This handles cases where the frontend might send data not as JSON.
+        # It's good practice to ensure the request content type is 'application/json'.
+        print("❌ Received non-JSON request.")
+        return jsonify({'status': 'error', 'message': 'Request must be JSON'}), 400
+
     data = request.json
-    print("📩 Received form data:", data)  # 🔍 Debug log
+    print("📩 Received form data:", data) # Debug log for incoming data
+
+    # --- Data Validation (Highly Recommended) ---
+    # Add validation to ensure essential fields are present and correctly formatted
+    required_fields = ['Full Name', 'Email Address'] # Adjust based on your form's crucial fields
+    for field in required_fields:
+        if field not in data or not data[field]:
+            print(f"❌ Missing or empty required field: {field}")
+            return jsonify({'status': 'error', 'message': f"Missing or empty required field: '{field}'"}), 400
 
     try:
+        # Call the append_to_sheet function from your google_sheets.py
         result = append_to_sheet(data)
-        print("✅ Google Sheets updated:", result)  # 🔍 Add success log
-        return jsonify({'status': 'success', 'message': 'Data saved to Google Sheets'})
+
+        if result.get("status") == "success":
+            print("✅ Data successfully appended to Google Sheets.")
+            return jsonify({'status': 'success', 'message': 'Data saved to Google Sheets'}), 200
+        else:
+            # If append_to_sheet returns an error status
+            error_message = result.get("message", "Unknown error when appending to sheet.")
+            print("❌ Error from Google Sheets module:", error_message)
+            return jsonify({'status': 'error', 'message': error_message}), 500
+
     except Exception as e:
-        print("❌ Error updating Google Sheets:", str(e))  # 🔍 Add error log
-        return jsonify({'status': 'error', 'message': str(e)})
+        # Catch any unexpected errors during the process
+        print("❌ Unexpected error during sheet update:", str(e))
+        return jsonify({'status': 'error', 'message': f"An internal server error occurred: {str(e)}"}), 500
+
+if __name__ == '__main__':
+    # Get the port from environment variable (for Render deployment) or default to 5000
+    port = int(os.environ.get("PORT", 5000))
+    print(f"🚀 Flask app starting on http://0.0.0.0:{port}")
+    app.run(host='0.0.0.0', port=port, debug=True) # debug=True is good for development, disable in production
